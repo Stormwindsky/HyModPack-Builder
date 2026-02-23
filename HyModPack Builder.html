@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HyModPack Builder</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --hytale-orange: #ff9d00;
+            --hytale-dark: #1a1a1a;
+            --hytale-gray: #2d2d2d;
+            --text-light: #f0f0f0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--hytale-dark);
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--hytale-gray);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            border: 1px solid rgba(255, 157, 0, 0.3);
+        }
+
+        h1 { 
+            color: var(--hytale-orange); 
+            margin-top: 0;
+            font-size: 1.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        p { color: #aaa; font-size: 0.95rem; }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            margin: 20px 0;
+            border-radius: 6px;
+            border: 1px solid #444;
+            box-sizing: border-box;
+            background: #111;
+            color: white;
+            font-size: 1rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--hytale-orange);
+        }
+
+        button {
+            background-color: var(--hytale-orange);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+
+        button:hover { 
+            background-color: #e68a00; 
+            box-shadow: 0 0 15px rgba(255, 157, 0, 0.4);
+        }
+
+        button:disabled { 
+            background-color: #555; 
+            cursor: not-allowed; 
+            box-shadow: none;
+        }
+
+        #status-container {
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+            min-height: 20px;
+        }
+
+        #statusText {
+            font-size: 0.9rem;
+            color: #bbb;
+        }
+
+        .loader {
+            border: 3px solid #333;
+            border-top: 3px solid var(--hytale-orange);
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+            display: none;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>HyModPack Builder</h1>
+    <p>Enter the URL of your <strong>.hymp</strong> instruction file</p>
+    
+    <input type="text" id="hympUrl" placeholder="https://example.com/pack.hymp" spellcheck="false">
+    
+    <button id="startBtn">Build ModPack</button>
+
+    <div id="status-container">
+        <div id="loader" class="loader"></div>
+        <span id="statusText">Waiting for URL...</span>
+    </div>
+</div>
+
+<script>
+    const startBtn = document.getElementById('startBtn');
+    const statusText = document.getElementById('statusText');
+    const loader = document.getElementById('loader');
+
+    /**
+     * Expected .hymp JSON structure:
+     * {
+     * "folderName": "StormWorld",
+     * "zipName": "StormWorld_Pack.zip",
+     * "previewUrl": "https://.../preview.png",
+     * "mods": [
+     * "https://.../mod1.jar",
+     * "https://.../mod2.jar"
+     * ]
+     * }
+     */
+
+    startBtn.addEventListener('click', async () => {
+        const url = document.getElementById('hympUrl').value.trim();
+        
+        if (!url) {
+            updateStatus(false, "Please provide a valid URL.");
+            return;
+        }
+
+        updateStatus(true, "Fetching .hymp file...");
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Could not fetch the .hymp file.");
+            
+            const config = await response.json();
+            const zip = new JSZip();
+            
+            // Create root folder based on StormWorld example
+            const root = zip.folder(config.folderName || "NewWorld");
+            const modsFolder = root.folder("mods");
+
+            // 1. Download preview.png
+            updateStatus(true, "Downloading preview.png...");
+            const previewResp = await fetch(config.previewUrl);
+            if (previewResp.ok) {
+                const previewBlob = await previewResp.blob();
+                root.file("preview.png", previewBlob);
+            }
+
+            // 2. Download mods
+            if (config.mods && Array.isArray(config.mods)) {
+                for (let i = 0; i < config.mods.length; i++) {
+                    const modUrl = config.mods[i];
+                    const fileName = modUrl.split('/').pop() || `mod_${i}.jar`;
+                    
+                    updateStatus(true, `Downloading mod: ${fileName}...`);
+                    
+                    try {
+                        const modResp = await fetch(modUrl);
+                        if (modResp.ok) {
+                            const modBlob = await modResp.blob();
+                            modsFolder.file(fileName, modBlob);
+                        }
+                    } catch (e) {
+                        console.warn(`Failed to download mod: ${fileName}`);
+                    }
+                }
+            }
+
+            // 3. Generate the ZIP
+            updateStatus(true, "Packaging your files...");
+            const content = await zip.generateAsync({type: "blob"});
+            
+            // 4. Trigger download
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = config.zipName || `${config.folderName}.zip`;
+            link.click();
+
+            updateStatus(false, "Success! Your ModPack is ready.");
+
+        } catch (error) {
+            console.error(error);
+            updateStatus(false, "Error: Check URL or CORS policy.");
+        }
+    });
+
+    function updateStatus(isLoading, text) {
+        statusText.innerText = text;
+        loader.style.display = isLoading ? "inline-block" : "none";
+        startBtn.disabled = isLoading;
+    }
+</script>
+
+</body>
+</html>

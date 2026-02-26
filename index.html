@@ -73,6 +73,7 @@
             font-size: 1rem;
             width: 100%;
             transition: all 0.2s ease;
+            margin-bottom: 10px; /* Ajout d'un petit espace entre les boutons */
         }
 
         button:hover { 
@@ -84,6 +85,18 @@
             background-color: #555; 
             cursor: not-allowed; 
             box-shadow: none;
+        }
+
+        /* Style spécifique pour le bouton secondaire si nécessaire, 
+           mais ici on garde le même visuel que demandé */
+        .secondary-btn {
+            background-color: transparent;
+            border: 1px solid var(--hytale-orange);
+            margin-top: 5px;
+        }
+
+        .secondary-btn:hover {
+            background-color: rgba(255, 157, 0, 0.1);
         }
 
         #status-container {
@@ -124,6 +137,7 @@
     <input type="text" id="hympUrl" placeholder="https://example.com/pack.hymp" spellcheck="false">
     
     <button id="startBtn">Build ModPack</button>
+    <button id="listBtn" class="secondary-btn">View Pack List</button>
 
     <div id="status-container">
         <div id="loader" class="loader"></div>
@@ -133,21 +147,14 @@
 
 <script>
     const startBtn = document.getElementById('startBtn');
+    const listBtn = document.getElementById('listBtn');
     const statusText = document.getElementById('statusText');
     const loader = document.getElementById('loader');
 
-    /**
-     * Expected .hymp JSON structure:
-     * {
-     * "folderName": "StormWorld",
-     * "zipName": "StormWorld_Pack.zip",
-     * "previewUrl": "https://.../preview.png",
-     * "mods": [
-     * "https://.../mod1.jar",
-     * "https://.../mod2.jar"
-     * ]
-     * }
-     */
+    // Action pour le nouveau bouton
+    listBtn.addEventListener('click', () => {
+        window.open('https://stormwindsky.github.io/HyModPack-Builder/List', '_blank');
+    });
 
     startBtn.addEventListener('click', async () => {
         const url = document.getElementById('hympUrl').value.trim();
@@ -166,11 +173,9 @@
             const config = await response.json();
             const zip = new JSZip();
             
-            // Create root folder based on StormWorld example
             const root = zip.folder(config.folderName || "NewWorld");
             const modsFolder = root.folder("mods");
 
-            // 1. Download preview.png
             updateStatus(true, "Downloading preview.png...");
             const previewResp = await fetch(config.previewUrl);
             if (previewResp.ok) {
@@ -178,7 +183,6 @@
                 root.file("preview.png", previewBlob);
             }
 
-            // 2. Download mods
             if (config.mods && Array.isArray(config.mods)) {
                 for (let i = 0; i < config.mods.length; i++) {
                     const modUrl = config.mods[i];
@@ -198,11 +202,9 @@
                 }
             }
 
-            // 3. Generate the ZIP
             updateStatus(true, "Packaging your files...");
             const content = await zip.generateAsync({type: "blob"});
             
-            // 4. Trigger download
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
             link.download = config.zipName || `${config.folderName}.zip`;
@@ -220,6 +222,7 @@
         statusText.innerText = text;
         loader.style.display = isLoading ? "inline-block" : "none";
         startBtn.disabled = isLoading;
+        listBtn.disabled = isLoading; // Désactive aussi le bouton de liste pendant le build
     }
 </script>
 

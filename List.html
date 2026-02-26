@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hytale Mod List | News Feed</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --hytale-gold: #ceab69;
+            --hytale-gold-bright: #f0d7a3;
+            --hytale-bg: #0b0e12;
+            --hytale-card-bg: #161b22;
+            --hytale-text: #d1d1d1;
+            --accent-gradient: linear-gradient(90deg, #ceab69 0%, #8e6d2f 100%);
+        }
+
+        body {
+            background-color: var(--hytale-bg);
+            color: var(--hytale-text);
+            font-family: 'Quicksand', sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            background-image: radial-gradient(circle at top, #1a202c 0%, #0b0e12 100%);
+        }
+
+        /* Header Style */
+        header {
+            height: 300px;
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
+                        url('https://hytale.com/static/images/media/screenshots/11.jpg') center/cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 3px solid var(--hytale-gold);
+            text-shadow: 0 4px 10px rgba(0,0,0,0.8);
+        }
+
+        header h1 {
+            font-family: 'Oswald', sans-serif;
+            font-size: 3rem;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Container */
+        .container {
+            max-width: 900px;
+            margin: -50px auto 50px;
+            background: var(--hytale-card-bg);
+            padding: 40px;
+            border-radius: 4px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid rgba(206, 171, 105, 0.2);
+            position: relative;
+        }
+
+        /* Markdown Styling */
+        #content h1, #content h2, #content h3 {
+            font-family: 'Oswald', sans-serif;
+            color: var(--hytale-gold);
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(206, 171, 105, 0.3);
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+
+        #content p { margin-bottom: 20px; }
+
+        /* Animated & Clickable Links */
+        #content a {
+            color: var(--hytale-gold);
+            text-decoration: none;
+            font-weight: bold;
+            position: relative;
+            transition: all 0.3s ease;
+            padding: 2px 4px;
+        }
+
+        #content a::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: 0;
+            left: 0;
+            background: var(--accent-gradient);
+            transition: width 0.3s ease;
+        }
+
+        #content a:hover {
+            color: white;
+            background: rgba(206, 171, 105, 0.1);
+        }
+
+        #content a:hover::after {
+            width: 100%;
+        }
+
+        /* List Styling */
+        ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+
+        ul li::before {
+            content: "◆";
+            color: var(--hytale-gold);
+            display: inline-block;
+            width: 1.5em;
+            margin-left: -1.5em;
+        }
+
+        /* Loading Spinner */
+        .loader {
+            text-align: center;
+            font-size: 1.5rem;
+            color: var(--hytale-gold);
+            padding: 50px;
+        }
+
+        /* Badge for the 'News' feel */
+        .badge {
+            display: inline-block;
+            background: var(--accent-gradient);
+            color: black;
+            padding: 5px 15px;
+            font-weight: bold;
+            font-family: 'Oswald', sans-serif;
+            margin-bottom: 15px;
+            clip-path: polygon(5% 0%, 100% 0%, 95% 100%, 0% 100%);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Hytale Community Mods</h1>
+</header>
+
+<div class="container">
+    <div class="badge">LATEST UPDATE</div>
+    <div id="loader" class="loader">Fetching data from Orbis...</div>
+    <div id="content"></div>
+</div>
+
+<script>
+    const RAW_URL = 'https://raw.githubusercontent.com/Stormwindsky/Hytale-Mods-List-that-work-with-my-Modpack-Creator/refs/heads/main/README.md';
+
+    async function fetchMarkdown() {
+        try {
+            const response = await fetch(RAW_URL);
+            if (!response.ok) throw new Error('Failed to load README');
+            
+            const text = await response.text();
+            
+            // Setup Marked.js options
+            marked.setOptions({
+                breaks: true,
+                gfm: true
+            });
+
+            // Convert Markdown to HTML
+            document.getElementById('content').innerHTML = marked.parse(text);
+            document.getElementById('loader').style.display = 'none';
+        } catch (error) {
+            document.getElementById('loader').innerHTML = 'Error loading content. Please check the URL.';
+            console.error(error);
+        }
+    }
+
+    // Initialize
+    fetchMarkdown();
+</script>
+
+</body>
+</html>

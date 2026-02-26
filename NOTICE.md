@@ -22,16 +22,19 @@ The builder expects a JSON structure. You must save your file with the `.hymp` e
 
 ### Example Configuration:
 
-Here:
-
+Check the template here:
 https://github.com/Stormwindsky/Template-Hytale-ModPack/blob/main/HYMP%20Template.hymp
+
+---
 
 ## 📚 Credits & Libraries
 
-This project is built using the following open-source libraries:
+This project is built using the following open-source libraries and resources:
 
 * **[JSZip](https://stuk.github.io/jszip/)**: A powerful JavaScript library used to create, read, and edit .zip files with a lovely and simple API.
 * **[Cloudflare CDN](https://cdnjs.com/)**: Used to deliver the JSZip library efficiently.
+* **[Google Fonts](https://fonts.google.com/)**: Used to provide high-quality typography (Quicksand and Oswald) to match the Hytale aesthetic.
+* **[Marked.js](https://marked.js.org/)**: A low-level compiler for parsing markdown without caching or blocking for long periods of time.
 
 ---
 

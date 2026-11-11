@@ -176,32 +176,32 @@
             updateStatus(true, "Processing preview.png...");
             if (config.previewUrl) {
                 try {
-                    const previewResp = await fetch(config.previewUrl);
-                    if (previewResp.ok) {
-                        const previewBlob = await previewResp.blob();
-                        const processedImageBlob = await processAndResizeImage(previewBlob, 640, 360);
-                        zip.file("preview.png", processedImageBlob);
-                    }
+                    const previewBlob = await fetchBlobWithFallback(config.previewUrl);
+                    const processedImageBlob = await processAndResizeImage(previewBlob, 640, 360);
+                    zip.file("preview.png", processedImageBlob);
                 } catch (e) {
                     console.warn("Failed to download or process preview.png", e);
                 }
             }
 
+            const failedMods = [];
+            let okCount = 0;
+
             if (config.mods && Array.isArray(config.mods)) {
+                const usedNames = new Set();
                 for (let i = 0; i < config.mods.length; i++) {
                     const modUrl = config.mods[i];
-                    const fileName = modUrl.split('/').pop() || `mod_${i}.jar`;
-                    
-                    updateStatus(true, `Downloading mod: ${fileName}...`);
-                    
+                    const fileName = getFileName(modUrl, i, usedNames);
+
+                    updateStatus(true, `Downloading mod ${i + 1}/${config.mods.length}: ${fileName}...`);
+
                     try {
-                        const modResp = await fetch(modUrl);
-                        if (modResp.ok) {
-                            const modBlob = await modResp.blob();
-                            zip.file(`mods/${fileName}`, modBlob);
-                        }
+                        const modBlob = await fetchBlobWithFallback(modUrl);
+                        zip.file(`mods/${fileName}`, modBlob);
+                        okCount++;
                     } catch (e) {
-                        console.warn(`Failed to download mod: ${fileName}`);
+                        console.warn(`Failed to download mod: ${fileName}`, e);
+                        failedMods.push(fileName);
                     }
                 }
             }
@@ -232,13 +232,63 @@
             link.download = customZipName;
             link.click();
 
-            updateStatus(false, "Success! Your ModPack is ready.");
+            if (failedMods.length > 0) {
+                updateStatus(false, `Done, but ${failedMods.length} file(s) could not be downloaded: ${failedMods.join(", ")}`);
+            } else {
+                updateStatus(false, `Success! Your ModPack is ready (${okCount} file(s) included).`);
+            }
 
         } catch (error) {
             console.error(error);
             updateStatus(false, "Error: Check URL or CORS policy.");
         }
     });
+
+    // Extracts a clean file name (decodes %20, %27, %21 ...) and avoids duplicates
+    function getFileName(modUrl, index, usedNames) {
+        let name = modUrl.split('?')[0].split('#')[0].split('/').pop() || '';
+        try { name = decodeURIComponent(name); } catch (e) {}
+        name = name.replace(/[\\/:*?"<>|]/g, '_').trim();
+        if (!name) name = `mod_${index}.jar`;
+        let finalName = name;
+        let n = 1;
+        while (usedNames.has(finalName.toLowerCase())) {
+            const dot = name.lastIndexOf('.');
+            finalName = dot > 0 ? `${name.slice(0, dot)}_${n}${name.slice(dot)}` : `${name}_${n}`;
+            n++;
+        }
+        usedNames.add(finalName.toLowerCase());
+        return finalName;
+    }
+
+    // CurseForge's CDN does not allow direct browser downloads (CORS),
+    // so we try a direct request first, then fall back to CORS proxies.
+    async function fetchBlobWithFallback(url) {
+        const attempts = [
+            url,
+            'https://corsproxy.io/?url=' + encodeURIComponent(url),
+            'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+            'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url)
+        ];
+
+        let lastError;
+        for (const attempt of attempts) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 90000);
+            try {
+                const resp = await fetch(attempt, { signal: controller.signal });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const blob = await resp.blob();
+                if (blob.size === 0) throw new Error("Empty file");
+                return blob;
+            } catch (e) {
+                lastError = e;
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+        throw lastError || new Error("All download attempts failed");
+    }
 
     function processAndResizeImage(blob, targetWidth, targetHeight) {
         return new Promise((resolve) => {
